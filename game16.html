@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<style>
+	canvas {
+		id="myCanvas"
+		border:1px solid #d3d3d3;
+		background-color: #f1f1f1;
+	}
+	</style>
+	<style>
+		body {
+			margin: 0px;
+			padding: 0px;
+		}
+	</style>
+</head>
+<body data-rsssl=1 onload="startGame()">
+<canvas id="myCanvas" width="700" height="600"></canvas>
+<script>
+
+var myGamePiece;
+var myGameWidth;
+var myGameHeight;
+var myGameCell = [];
+var myGamePlayer = 1; // 1 = red = human, 2 = yellow = computer
+var boolDrawLines = 0;
+var theWinner = 0;
+
+function writeMessage(canvas, message) {
+	var context = canvas.getContext('2d');
+	context.clearRect(0, 0, canvas.width, canvas.height);
+	context.font = '18pt Calibri';
+	context.fillStyle = 'black';
+	context.fillText(message, 10, 25);
+}
+function getMousePos(canvas, evt) {
+	var rect = canvas.getBoundingClientRect();
+	return {
+		x: evt.clientX - rect.left,
+		y: evt.clientY - rect.top
+	};
+}
+
+var canvas = document.getElementById('myCanvas');
+
+canvas.addEventListener('mouseup', function(evt) {
+	switch (theWinner){
+	case 1: 
+		alert("You win!");
+		break;
+	case 2: 
+		alert("The computer wins!");
+		break;
+	}
+}, false);
+
+canvas.addEventListener('mousedown', function(evt) {
+	switch(myGamePlayer){
+	case 1:  // it's the human's (red) turn
+		var mousePos = getMousePos(canvas, evt);
+		var columnNr = Math.floor(mousePos.x/myGameWidth*7);
+		var rowNr = getFreeRow(columnNr,myGameCell);
+		if(rowNr == -1){//that column was full
+			alert("Deze kolom zit vol, kies een andere.");
+			break;
+		}else{
+			myGameCell[columnNr][rowNr] = myGamePlayer;
+			drawCircle(columnNr,rowNr,'red');
+			var winningMove = checkFourOnARow(myGameCell);
+			if(winningMove.length >= 1){
+				theWinner = myGamePlayer;
+				break;
+			}else{
+				if(myGamePlayer==1){myGamePlayer=2;}else{myGamePlayer=1;}
+			}
+			break;
+		}
+	case 2: // it's the computers (yellow) turn
+		var columnNr = findNextMove();
+		var rowNr = getFreeRow(columnNr,myGameCell);
+		if(rowNr == -1){//that column was full
+			alert("De computer koos een kolom die vol zat, klik op 'OK' om hem een nieuwe kans te geven.");
+			break;
+		}else{
+			myGameCell[columnNr][rowNr] = myGamePlayer;
+			drawCircle(columnNr,rowNr,'yellow');
+			var winningMove = checkFourOnARow(myGameCell);
+			if(winningMove.length >= 1){
+				theWinner = myGamePlayer;
+				break;
+			}else{
+				if(myGamePlayer==1){myGamePlayer=2;}else{myGamePlayer=1;}
+			}
+			break;
+		}
+	default:
+		alert("myGamePlayer had a wrong value");
+	}
+	
+}, false);
+	  
+function startGame() {
+	myGameWidth = canvas.width;
+    myGameHeight = canvas.height;
+	
+	// draw table 7 in width and 6 in height
+    ctx = this.canvas.getContext("2d");
+    ctx.beginPath();
+    ctx.rect(0, 0, myGameWidth, myGameHeight);
+	ctx.fillStyle = 'blue';
+	ctx.fill();
+	
+	// initialize myGameCell to 0 and draw cells
+    for (i = 0; i < 7; i++){// 7 columns
+		myGameCell[i] = [];
+		for (j = 0; j < 6; j++){ // 6 rows
+			myGameCell[i][j] = 0;// all cells are empty
+			drawCircle(i, j, 'white');
+		}
+    }
+}
+
+function getFreeRow(columnNr,matrix) {
+	// returns -1 when there is no free row, otherwise the return value is the first free row that was found for that column
+	var rowNr = -1;
+	for (j = 0; j < 6; j++){ // 6 rows
+		if (matrix[columnNr][j] == 0){
+			return j;
+		}
+	}
+	return rowNr;
+}
+
+function findNextMove() {// find next move for computer (myGamePlayer == 1)
+	var rowNr = -1;
+	// copy the matrix
+	var freeRowInColumn = [];
+	var matrix = [];
+	for (var i = 0; i < 7; i++){// 7 columns
+		matrix[i] = [];
+		for (j = 0; j < 6; j++){ // 6 rows
+			matrix[i][j] = myGameCell[i][j];
+		}
+	}
+	for (var i = 0; i < 7; i++){// 7 columns
+		freeRowInColumn[i] = getFreeRow(i,matrix);
+	}
+	// let the computer (myGamePlaer = 2 = yellow) make 4 on a row if he can
+	var nextMove = make4OnARow(matrix,freeRowInColumn,2);
+	if(nextMove != -1){
+		return nextMove;
+	}
+	// See if the human player (myGamePlaer = 1 = red) can make 4 on a row in the next move. If so, let the computer block that move ;-)
+	nextMove = make4OnARow(matrix,freeRowInColumn,1);
+	// check whether the human can make 4 on a row with this move from the computer
+	if(nextMove != -1){
+		// set freeRowInColumn and matrix
+		matrix[nextMove][freeRowInColumn[nextMove]] = 2; // the computer makes this move instead of the human
+		freeRowInColumn[nextMove] = getFreeRow(nextMove,matrix);
+		if(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove)){// make sure the human cannot make 4 on a row in the next move.
+			return nextMove;
+		}
+		// reset freeRowInColumn and matrix
+		freeRowInColumn[nextMove] = getFreeRow(nextMove,myGameCell);
+		matrix[nextMove][freeRowInColumn[nextMove]] = myGameCell[nextMove][freeRowInColumn[nextMove]]; 
+	}
+	
+		
+	// let the computer make (0,1,1,1,0) if he can
+	nextMove = makePatternOf5(matrix,freeRowInColumn,2);
+	// check whether the human can make 4 on a row with this move from the computer
+	if((nextMove != -1)&&(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove))){
+		return nextMove;
+	}
+ 
+	
+	// See if the human player can make (0,1,1,1,0) in the next move. If so, let the computer block that move ;-)
+	nextMove = makePatternOf5(matrix,freeRowInColumn,1);
+	if((nextMove != -1)&&(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove))){
+		return nextMove;
+	}
+
+	// Check if there is a first move that returns a (nextMove != -1)
+	for (var ic = 0; ic < 7; ic++){// let the computer try every possible move (ic,jc)
+		var jc = freeRowInColumn[ic];
+		matrix[ic][jc] = 2; // computer		
+		for (var ih = 0; ih < 7; ih++){// let the human try every possible move (ih,jh)
+			// update freeRowInColumn
+			for (var i = 0; i < 7; i++){// 7 columns
+				freeRowInColumn[i] = getFreeRow(i,matrix);
+			}
+			var jh = freeRowInColumn[ih];
+			matrix[ih][jh] = 1; // human
+			
+			// let the computer make 4 on a row if he can
+			var nextMove = make4OnARow(matrix,freeRowInColumn,2);
+			if(nextMove != -1){
+				return nextMove;
+			}
+			// See if the human player can make 4 on a row in the next move. If so, let the computer block that move ;-)
+			nextMove = make4OnARow(matrix,freeRowInColumn,1);
+			if((nextMove != -1)&&(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove))){
+				return nextMove;
+			}
+			// let the computer make (0,1,1,1,0) if he can
+			nextMove = makePatternOf5(matrix,freeRowInColumn,2);
+			if((nextMove != -1)&&(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove))){
+				return nextMove;
+			}
+			// See if the human player can make (0,1,1,1,0) in the next move. If so, let the computer block that move ;-)
+			nextMove = makePatternOf5(matrix,freeRowInColumn,1);
+			if((nextMove != -1)&&(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove))){
+				return nextMove;
+			}	
+			
+			matrix[ih][jh] = myGameCell[ih][jh]; // set original value back for human
+		}
+		matrix[ic][jc] = myGameCell[ic][jc]; // set original value back for computer
+	}
+	
+	// make random move with preference for center
+	var index = [];
+	switch(Math.floor(Math.random() * 5)){// returns a random integer from 0 to 4
+		case 0:
+			index = [3,2,4,5,1,6,0];
+			break;
+		case 1:
+			index = [4,2,3,5,6,1,0];
+			break;
+		case 2:
+			index = [2,3,4,5,0,6,1];
+			break;
+		case 3:
+			index = [3,5,4,1,2,6,0];
+			break;	
+		case 4:
+			index = [4,3,2,0,1,6,5];
+			break;	
+		default:
+			index = [3,2,4,5,1,6,0];
+	}
+	for (var i = 0; i < 7; i++){// 7 columns
+		var nextMove = index[i];
+		if((getFreeRow(nextMove,myGameCell)!=-1)&&(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove))){
+			return nextMove;
+		}
+	}
+	alert("De computer kon geen geldige zet meer verzinnen. Proficiat, jullie speelden gelijk spel.");
+}
+
+function make4OnARow(matrix,freeRowInColumn,gamePlayer){// try to let gamePlayer make 4 on a row
+// return the column of the move that makes gamePlayer win
+// return -1 of no such move is found	
+	for (var i = 0; i < 7; i++){// 7 columns
+		var j = freeRowInColumn[i];
+		matrix[i][j] = gamePlayer; // let gamePlayer make this move
+		var winningMove = checkFourOnARow(matrix);
+		if(winningMove.length >= 1){
+			return i; // return the number of the column
+		} else {
+			matrix[i][j] = myGameCell[i][j]; // set original value back
+		}
+	}
+	return -1; // no winning move found
+}
+
+function makePatternOf5(matrix,freeRowInColumn,gamePlayer){// try to let gamePlayer make (0,1,1,1,0) 
+// return the column of the move that makes gamePlayer make that move
+// return -1 of no such move is found	
+	for (var i = 0; i < 7; i++){// 7 columns
+		var j = freeRowInColumn[i];
+		matrix[i][j] = gamePlayer; // let gamePlayer make this move
+		var winningMove = checkPatternOf5(matrix,gamePlayer);
+		if(winningMove.length >= 1){
+			return i; // return the number of the column
+		} else {
+			matrix[i][j] = myGameCell[i][j]; // set original value back
+		}
+	}
+	return -1;
+}
+
+function humanCannotWinAfterThisMove(matrix,freeRowInColumn,thisMove)
+{
+	let indeedHeCannot = true;
+	// set freeRowInColumn and matrix
+	matrix[thisMove][freeRowInColumn[thisMove]] = 2; 
+	freeRowInColumn[thisMove] = getFreeRow(thisMove,matrix);
+	if (make4OnARow(matrix,freeRowInColumn,1)!=-1){
+		indeedHeCannot = false;
+	}
+	// reset freeRowInColumn and matrix
+	freeRowInColumn[thisMove] = getFreeRow(thisMove,myGameCell);
+	matrix[thisMove][freeRowInColumn[thisMove]] = myGameCell[thisMove][freeRowInColumn[thisMove]];
+	return indeedHeCannot;
+}
+
+function checkTrap(m, p){// check if human can make (0,1,1,1,0)
+	var result = [];
+	for (var j = 0; j <=2; j++){ // val 1
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j]==0)&&(m[i][j+1]==0)&&(m[i+2][j+1]==p)&&(m[i+2][j+2]==p)&&(m[i+3][j+1]==p)&&(m[i+3][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j+3);
+					drawLine(i,j+1,i+3,j+1);
+				}
+				result.push(i+1);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 2
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j]==p)&&(m[i][j+1]==p)&&(m[i+2][j+1]==0)&&(m[i+2][j+2]==0)&&(m[i+3][j+1]==p)&&(m[i+3][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j+3);
+					drawLine(i,j+1,i+3,j+1);
+				}
+				result.push(i+1);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 3
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j]==p)&&(m[i][j+2]==p)&&(m[i+1][j+1]==p)&&(m[i+1][j+2]==p)&&(m[i+3][j+2]==0)&&(m[i+3][j+3]==0)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j+3);
+					drawLine(i,j+2,i+3,j+2);
+				}
+				result.push(i+2);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 4
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j]==p)&&(m[i][j+2]==p)&&(m[i+1][j+1]==0)&&(m[i+1][j+2]==0)&&(m[i+3][j+2]==p)&&(m[i+3][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j+3);
+					drawLine(i,j+2,i+3,j+2);
+				}
+				result.push(i+2);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 5
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j+2]==0)&&(m[i][j+3]==0)&&(m[i+2][j+1]==p)&&(m[i+2][j+2]==p)&&(m[i+3][j]==p)&&(m[i+3][j+2]==p)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j);
+					drawLine(i,j+2,i+3,j+2);
+				}
+				result.push(i+1);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 6
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j+2]==p)&&(m[i][j+3]==p)&&(m[i+2][j+1]==0)&&(m[i+2][j+2]==0)&&(m[i+3][j]==p)&&(m[i+3][j+2]==p)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j);
+					drawLine(i,j+2,i+3,j+2);
+				}
+				result.push(i+1);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 6
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j+1]==p)&&(m[i][j+3]==p)&&(m[i+1][j+1]==p)&&(m[i+1][j+2]==p)&&(m[i+3][j]==0)&&(m[i+3][j+1]==0)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j);
+					drawLine(i,j+1,i+3,j+1);
+				}
+				result.push(i+2);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 7
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j+1]==p)&&(m[i][j+3]==p)&&(m[i+1][j+1]==0)&&(m[i+1][j+2]==0)&&(m[i+3][j]==0)&&(m[i+3][j+1]==0)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j);
+					drawLine(i,j+1,i+3,j+1);
+				}
+				result.push(i+2);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 8
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j+1]==p)&&(m[i][j+3]==p)&&(m[i+1][j+1]==0)&&(m[i+1][j+2]==0)&&(m[i+3][j]==p)&&(m[i+3][j+1]==p)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j);
+					drawLine(i,j+1,i+3,j+1);
+				}
+				result.push(i+2);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 9
+		for (var i = 0; i <= 3; i++){
+			if((m[i+1][j+2]==0)&&(m[i+1][j+3]==0)&&(m[i+2][j+1]==p)&&(m[i+2][j+3]==p)&&(m[i+3][j]==p)&&(m[i+3][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j);
+					drawLine(i,j+3,i+3,j+3);
+				}
+				result.push(i+0);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 10
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j]==p)&&(m[i][j+3]==p)&&(m[i+1][j+1]==p)&&(m[i+1][j+3]==p)&&(m[i+2][j+2]==0)&&(m[i+2][j+3]==0)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j+3);
+					drawLine(i,j+3,i+3,j+3);
+				}
+				result.push(i+3);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 11
+		for (var i = 0; i <= 3; i++){
+			if((m[i+1][j]==0)&&(m[i+1][j+1]==0)&&(m[i+2][j]==p)&&(m[i+2][j+2]==p)&&(m[i+3][j]==p)&&(m[i+3][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j+3);
+					drawLine(i,j,i+3,j);
+				}
+				result.push(i+0);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 12
+		for (var i = 0; i <= 3; i++){
+			if((m[i][j]==p)&&(m[i][j+3]==p)&&(m[i+1][j]==p)&&(m[i+1][j+2]==p)&&(m[i+2][j]==0)&&(m[i+2][j+1]==0)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j);
+					drawLine(i,j,i+3,j);
+				}
+				result.push(i+3);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 13
+		for (var i = 0; i <= 2; i++){ // this one is 5x4
+			if((m[i][j]==p)&&(m[i+2][j]==0)&&(m[i+2][j+1]==0)&&(m[i+3][j]==p)&&(m[i+3][j+2]==p)&&(m[i+4][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j);
+					drawLine(i+1,j,i+4,j+3);
+				}
+				result.push(i+1);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 14
+		for (var i = 0; i <= 2; i++){ // this one is 5x4
+			if((m[i][j+3]==p)&&(m[i+1][j]==p)&&(m[i+1][j+2]==p)&&(m[i+2][j]==0)&&(m[i+2][j+1]==0)&&(m[i+4][j]==p)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j);
+					drawLine(i+1,j,i+4,j);
+				}
+				result.push(i+3);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 15
+		for (var i = 0; i <= 2; i++){ // this one is 5x4
+			if((m[i][j+3]==p)&&(m[i+2][j+2]==0)&&(m[i+2][j+3]==0)&&(m[i+3][j+1]==p)&&(m[i+3][j+3]==p)&&(m[i+4][j]==p)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j+3);
+					drawLine(i+1,j,i+4,j);
+				}
+				result.push(i+1);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 16
+		for (var i = 0; i <= 2; i++){ // this one is 5x4
+			if((m[i][j]==p)&&(m[i+1][j+1]==p)&&(m[i+1][j+3]==p)&&(m[i+2][j+2]==0)&&(m[i+2][j+3]==0)&&(m[i+4][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j+3);
+					drawLine(i+1,j+3,i+4,j+3);
+				}
+				result.push(i+3);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 17
+		for (var i = 0; i <= 1; i++){ // this one is 6x4
+			if((m[i][j]==p)&&(m[i+1][j]==p)&&(m[i+3][j]==0)&&(m[i+3][j+1]==0)&&(m[i+4][j+2]==p)&&(m[i+5][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j);
+					drawLine(i+2,j,i+5,j+3);
+				}
+				result.push(i+2);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 18
+		for (var i = 0; i <= 1; i++){ // this one is 6x4
+			if((m[i][j+3]==p)&&(m[i+1][j+2]==p)&&(m[i+2][j]==0)&&(m[i+2][j+1]==0)&&(m[i+4][j]==p)&&(m[i+5][j]==p)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j);
+					drawLine(i+2,j,i+5,j);
+				}
+				result.push(i+3);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 19
+		for (var i = 0; i <= 1; i++){ // this one is 6x4
+			if((m[i][j+3]==p)&&(m[i+1][j+3]==p)&&(m[i+3][j+2]==0)&&(m[i+3][j+3]==0)&&(m[i+4][j+1]==p)&&(m[i+5][j]==p)){
+				if(boolDrawLines){
+					drawLine(i,j+3,i+3,j+3);
+					drawLine(i+2,j+3,i+5,j);
+				}
+				result.push(i+2);
+			}	
+		}
+    }
+	for (var j = 0; j <=2; j++){ // val 20
+		for (var i = 0; i <= 1; i++){ // this one is 6x4
+			if((m[i][j]==p)&&(m[i+1][j+1]==p)&&(m[i+2][j+2]==0)&&(m[i+2][j+3]==0)&&(m[i+4][j+3]==p)&&(m[i+5][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j+3);
+					drawLine(i+2,j+3,i+5,j+3);
+				}
+				result.push(i+3);
+			}	
+		}
+    }
+	/*for (var j = 0; j <=2; j++){ // val 21
+		for (var i = 0; i <= 0; i++){ // this one is 7x4
+			if((m[i][j]==p)&&(m[i+1][j]==p)&&(m[i+2][j+2]==0)&&(m[i+2][j+3]==0)&&(m[i+4][j+3]==p)&&(m[i+5][j+3]==p)){
+				if(boolDrawLines){
+					drawLine(i,j,i+3,j+3);
+					drawLine(i+2,j+3,i+5,j+3);
+				}
+				result.push(i+2);
+			}	
+		}
+    }*/
+	return result;
+}
+
+
+function checkPatternOf5(matrix,gamePlayer){// check if gamePlayer can make (0,1,1,1,0)
+	var max;
+	var min;
+	var p = gamePlayer;
+	var result = [];
+	// check horizontal
+	for (var j = 0; j <=5; j++){ 
+		for (var i = 0; i <= 2; i++){
+			if((matrix[i][j]==0)&&(matrix[i+1][j]==p)&&(matrix[i+2][j]==p)&&(matrix[i+3][j]==p)&&(matrix[i+4][j]==0)){
+				if(boolDrawLines){drawLine(i,j,i+4,j);}
+				result.push(i);
+			}	
+		}
+    }
+	// check diagonal right-up
+	for (var j = 0; j <=1; j++){ 
+		for (var i = 0; i <= 2; i++){
+			if((matrix[i][j]==0)&&(matrix[i+1][j+1]==p)&&(matrix[i+2][j+2]==p)&&(matrix[i+3][j+3]==p)&&(matrix[i+4][j+4]==0)){
+				if(boolDrawLines){drawLine(i,j,i+4,j+4);}
+				result.push(i);
+			}	
+		}
+    }
+	// check diagonal left-up
+	for (var j = 4; j <=1; j++){ 
+		for (var i = 0; i <= 5; i++){
+			if((matrix[i][j]==0)&&(matrix[i-1][j+1]==p)&&(matrix[i-2][j+2]==p)&&(matrix[i-3][j+3]==p)&&(matrix[i-4][j+4]==0)){
+				if(boolDrawLines){drawLine(i,j,i-4,j+4);}
+				result.push(i);
+			}	
+		}
+    }
+	return result;
+}
+
+function checkFourOnARow(matrix){
+	var max;
+	var min;
+	var result = [];
+	
+	
+	// check horizontal
+	for (var j = 0; j < 6; j++){ // 6 rows
+		for (var i = 0; i+3 < 7; i++){// 7 columns
+			max = Math.max(matrix[i][j],matrix[i+1][j],matrix[i+2][j],matrix[i+3][j]); 
+			min = Math.min(matrix[i][j],matrix[i+1][j],matrix[i+2][j],matrix[i+3][j]); 
+			if((max==min)&&(max!=0)){ // we have a winner
+				if(boolDrawLines){drawLine(i,j,i+3,j);}
+				result.push(i);
+			}	
+		}
+    }
+	// check vertical
+	for (var i = 0; i < 7; i++){// 7 columns
+		for (var j = 0; j+3 < 6; j++){ // 6 rows
+			max = Math.max(matrix[i][j],matrix[i][j+1],matrix[i][j+2],matrix[i][j+3]); 
+			min = Math.min(matrix[i][j],matrix[i][j+1],matrix[i][j+2],matrix[i][j+3]); 
+			if((max==min)&&(max!=0)){ // we have a winner
+				if(boolDrawLines){drawLine(i,j,i,j+3);}
+				result.push(i);
+			}	
+		}
+    }
+	// check diagonal right-up
+	for (var i = 0; i+3 < 7; i++){// 7 columns
+		for (var j = 0; j+3 < 6; j++){ // 6 rows
+			max = Math.max(matrix[i][j],matrix[i+1][j+1],matrix[i+2][j+2],matrix[i+3][j+3]); 
+			min = Math.min(matrix[i][j],matrix[i+1][j+1],matrix[i+2][j+2],matrix[i+3][j+3]); 
+			if((max==min)&&(max!=0)){ // we have a winner
+				if(boolDrawLines){drawLine(i,j,i+3,j+3);}
+				result.push(i);
+			}	
+		}
+    }
+	// check diagonal left-up
+	for (var i = 3; i < 7; i++){// 7 columns
+		for (var j = 0; j+3 < 6; j++){ // 6 rows
+			max = Math.max(matrix[i][j],matrix[i-1][j+1],matrix[i-2][j+2],matrix[i-3][j+3]); 
+			min = Math.min(matrix[i][j],matrix[i-1][j+1],matrix[i-2][j+2],matrix[i-3][j+3]); 
+			if((max==min)&&(max!=0)){ // we have a winner
+				if(boolDrawLines){drawLine(i,j,i-3,j+3);}
+				result.push(i);
+			}	
+		}
+    }
+	return result;
+}
+
+function drawCircle(i, j, color){
+	ctx = this.canvas.getContext("2d");
+	ctx.fillStyle = color;
+	ctx.beginPath();
+	ctx.arc(i*myGameWidth/7+myGameWidth/(7*2), (5-j)*myGameHeight/6+myGameHeight/(6*2), myGameWidth/(7*2), 0, 2 * Math.PI);
+	ctx.fill();
+	ctx.lineWidth = 5;
+	ctx.strokeStyle = 'black';
+	ctx.stroke(); 
+}
+
+function drawLine(i_begin, j_begin, i_end, j_end, color){
+	ctx = this.canvas.getContext("2d");
+	var x = i_begin*myGameWidth/7+myGameWidth/(7*2);
+	var y = (5-j_begin)*myGameHeight/6+myGameHeight/(6*2);
+	ctx.moveTo(x,y);
+	x = i_end*myGameWidth/7+myGameWidth/(7*2);
+	y = (5-j_end)*myGameHeight/6+myGameHeight/(6*2);
+	ctx.lineTo(x,y);
+	ctx.lineWidth = 5;
+	ctx.strokeStyle = 'black';
+	ctx.stroke(); 
+}
+
+function drawGameArea() {
+	var color
+	for (i = 0; i < 7; i++){// 7 columns
+		for (j = 0; j < 6; j++){ // 6 rows
+			if (myGameCell[i][j] != 0){
+				if(myGameCell[i][j] == 1){// red player 1
+					color = 'red';
+				} else if (myGameCell[i][j] == 2){// yellow player 2
+					color = 'yellow';
+				} else { 
+					// error
+					color = 'white';
+				}
+
+			}else{
+				color = 'white';
+			}
+			drawCircle(i,j,color);
+		}
+    } 
+}
+
+
+
+/*<p>
+<ul>
+	<li><a href="https://www.w3schools.com/graphics/canvas_drawing.asp" target="_blank">Canvas drawing</a></li>
+	<li><a href="https://www.w3schools.com/jsref/jsref_statements.asp" target="_blank">Java script</a></li>
+	<li><a href="https://www.html5canvastutorials.com/tutorials/html5-canvas-rectangles/" target="_blank">Another canvas tutorial</a></li>
+</ul>
+</p>*/
+
+</script>
+
+</body>
+</html>
