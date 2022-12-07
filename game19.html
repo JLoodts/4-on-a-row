@@ -25,7 +25,7 @@ var myGameWidth;
 var myGameHeight;
 var myGameCell = [];
 var myGamePlayer = 1; // 1 = red = human, 2 = yellow = computer
-var boolDrawLines = 1;
+var boolDrawLines = 0;
 var theWinner = 0;
 const computer = 2;
 const human = 1;
@@ -178,7 +178,7 @@ function findNextMove() {// find next move for computer (myGamePlayer == 1)
 	}
 	
 		
-/*	// C let the computer make (0,1,1,1,0) if he can
+	// C let the computer make (0,1,1,1,0) if he can
 	nextMove = makePatternOf5(matrix,freeRowInColumn,computer);
 	console.log("C");
 	// check whether the human can make 4 on a row with this move from the computer
@@ -212,7 +212,8 @@ function findNextMove() {// find next move for computer (myGamePlayer == 1)
 	console.log("E");
 	for (var ic = 0; ic < 7; ic++){// let the computer try every possible move (ic,jc)
 		var jc = freeRowInColumn[ic];
-		matrix[ic][jc] = 2; // computer	
+		matrix[ic][jc] = 2; // update the matrix after computer made move (ic,jc)	
+		freeRowInColumn[ic] = getFreeRow(ic,matrix); // update the free row after computer made move (ic,jc)
 		var badMoveThatMakesHumanWin = make4OnARow(matrix,freeRowInColumn,human);
 		if(badMoveThatMakesHumanWin != -1){// ic is a bad move that makes the human win
 			console.log(ic+": E-");
@@ -224,45 +225,48 @@ function findNextMove() {// find next move for computer (myGamePlayer == 1)
 					freeRowInColumn[i] = getFreeRow(i,matrix);
 				}
 				var jh = freeRowInColumn[ih];
-				matrix[ih][jh] = human; // human
-				// so now we explore scenario's that are one step ahead
+				if(jh != -1){// ih is a valid move for the human
+					matrix[ih][jh] = human; // human
+					freeRowInColumn[ih] = getFreeRow(ih,matrix); // update the free row after human made move (ih,jh)
+					// so now we explore scenario's that are one step ahead
 		
-				// A let the computer make 4 on a row if he can
-				var nextMove = make4OnARow(matrix,freeRowInColumn,computer);
-				if(nextMove != -1){
-					console.log(ic+": E - "+nextMove+": A+");
-					return ic;
-				}
-				// B See if the human player can make 4 on a row in the next move. If so, let the computer block that move ;-)
-				nextMove = make4OnARow(matrix,freeRowInColumn,human);
-				if(nextMove != -1){
-					console.log(ic+": E - "+nextMove+": B-");
-					// we don't return ic since this move gives the human a chance to make 4 on a row
-					dont.push(ic); // instead we add it to the list of unfavorable moves
-				}
-				// C let the computer make (0,1,1,1,0) if he can
-				nextMove = makePatternOf5(matrix,freeRowInColumn,computer);
-				if(nextMove != -1){
-					console.log(ic+": E - "+nextMove+": C+");
-					if(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove)){
-						console.log(ic+": E - "+nextMove+": C++");
+					// A let the computer make 4 on a row if he can
+					var nextMove = make4OnARow(matrix,freeRowInColumn,computer);
+					if(nextMove != -1){
+						console.log(ic+": E - "+nextMove+": A+");
 						return ic;
 					}
-				}
-				// D See if the human player can make (0,1,1,1,0) in the next move. If so, let the computer block that move ;-)
-				nextMove = makePatternOf5(matrix,freeRowInColumn,human);
-				if(nextMove != -1){
-					console.log(ic+": E - "+nextMove+": D-");
-					// we don't return ic since this move give the human a chance to make (0,1,1,1,0)
-					dont.push(ic); // instead we add it to the list of unfavorable moves
-				}
-				
-				matrix[ih][jh] = myGameCell[ih][jh]; // set original value back for human
+					// B See if the human player can make 4 on a row in the next move. If so, let the computer block that move ;-)
+					nextMove = make4OnARow(matrix,freeRowInColumn,human);
+					if(nextMove != -1){
+						console.log(ic+": E - "+nextMove+": B-");
+						// we don't return ic since this move gives the human a chance to make 4 on a row
+						dont.push(ic); // instead we add it to the list of unfavorable moves
+					}
+	/*				// C let the computer make (0,1,1,1,0) if he can
+					nextMove = makePatternOf5(matrix,freeRowInColumn,computer);
+					if(nextMove != -1){
+						console.log(ic+": E - "+nextMove+": C+");
+						if(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove)){
+							console.log(ic+": E - "+nextMove+": C++");
+							return ic;
+						}
+					}
+	*/				// D See if the human player can make (0,1,1,1,0) in the next move. If so, let the computer block that move ;-)
+					nextMove = makePatternOf5(matrix,freeRowInColumn,human);
+					if(nextMove != -1){
+						console.log(ic+": E - "+nextMove+": D-");
+						// we don't return ic since this move give the human a chance to make (0,1,1,1,0)
+						dont.push(ic); // instead we add it to the list of unfavorable moves
+					}
+					matrix[ih][jh] = myGameCell[ih][jh]; // set original value back for human
+				}else{
+				}// don't do anything since column ih was full, so it was not a valid move for the human
 			}
 		}
 		matrix[ic][jc] = myGameCell[ic][jc]; // set original value back for computer
 	}
-*/
+
 	// F make random move with preference for center
 	var index = [];
 	switch(Math.floor(Math.random() * 5)){// returns a random integer from 0 to 4
@@ -330,7 +334,7 @@ function make4OnARow(matrix,freeRowInColumn,gamePlayer){// try to let gamePlayer
 		if(j!=-1){
 			matrix[i][j] = gamePlayer; // let gamePlayer make this move
 			var winningMove = checkFourOnARow(matrix);
-			matrix[i][j] = myGameCell[i][j]; // set original value back
+			matrix[i][j] = 0; // set original value 0 back
 			if(winningMove.length >= 1){
 				return i; // return the number of the column
 			}
@@ -342,21 +346,23 @@ function make4OnARow(matrix,freeRowInColumn,gamePlayer){// try to let gamePlayer
 function makePatternOf5(matrix,freeRowInColumn,gamePlayer){// try to let gamePlayer make (0,1,1,1,0) 
 // return the column of the move that makes gamePlayer make that move
 // return -1 of no such move is found
-	if(checkPatternOf5(matrix,gamePlayer)!=-1){// there is already (0,1,1,1,0) present
+var winningMove = checkPatternOf5(matrix,gamePlayer)
+	if(winningMove.length >= 1){// there is already (0,1,1,1,0) present
 		// do nothing for now. We are not going to try to make two patterns (0,1,1,1,0)
 	}else{ // no (0,1,1,1,0) present, see if we can make one
 		for (var i = 0; i < 7; i++){// 7 columns
 			var j = freeRowInColumn[i];
-			matrix[i][j] = gamePlayer; // let gamePlayer make this move
-			var winningMove = checkPatternOf5(matrix,gamePlayer);
-			if(winningMove.length >= 1){
-				return i; // return the number of the column
-			} else {
+			if(j!=-1){
+				matrix[i][j] = gamePlayer; // let gamePlayer make this move
+				var winningMove = checkPatternOf5(matrix,gamePlayer);
 				matrix[i][j] = myGameCell[i][j]; // set original value back
+				if(winningMove.length >= 1){
+					return i; // return the number of the column
+				} 
 			}
 		}
 	}
-	return -1;
+	return -1; // no winning move found
 }
 
 function humanCanWinAfterThisMove(matrix,freeRowInColumn,thisMove)
@@ -648,8 +654,8 @@ function checkPatternOf5(matrix,gamePlayer){// check if gamePlayer has (0,1,1,1,
 		}
     }
 	// check diagonal left-up
-	for (var j = 4; j <=1; j++){ 
-		for (var i = 0; i <= 5; i++){
+	for (var j = 0; j <=1; j++){ 
+		for (var i = 4; i <= 5; i++){
 			if((matrix[i][j]==0)&&(matrix[i-1][j+1]==p)&&(matrix[i-2][j+2]==p)&&(matrix[i-3][j+3]==p)&&(matrix[i-4][j+4]==0)){
 				if(boolDrawLines){drawLine(i,j,i-4,j+4);}
 				result.push(i);
