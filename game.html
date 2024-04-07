@@ -4,7 +4,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 	<style>
 	canvas {
-		id="myCanvas"
+		id="myCanvas";
 		border:1px solid #d3d3d3;
 		background-color: #f1f1f1;
 	}
@@ -27,6 +27,7 @@ var myGameCell = [];
 var myGamePlayer = 1; // 1 = red = human, 2 = yellow = computer
 var boolDrawLines = 0;
 var theWinner = 0;
+var textToSave = "";
 const computer = 2;
 const human = 1;
 
@@ -50,9 +51,11 @@ var canvas = document.getElementById('myCanvas');
 canvas.addEventListener('mouseup', function(evt) {
 	switch (theWinner){
 	case human: 
+		saveToFile();
 		alert("You win!");
 		break;
 	case computer: 
+		saveToFile();
 		alert("The computer wins!");
 		break;
 	}
@@ -100,9 +103,42 @@ canvas.addEventListener('mousedown', function(evt) {
 	default:
 		alert("myGamePlayer had a wrong value");
 	}
-	
+	appendToText();
 }, false);
-	  
+
+function appendToText() {
+	for (j = 5; j >= 0; j--){// 6 rows omdat bij png rij 0 van boven is
+		for (i = 0; i < 7; i++){ // 7 columns
+			if(myGameCell[i][j]==0){
+				textToSave += "0 0 0 ";
+			}else if (myGameCell[i][j]==1){ // human, red
+				textToSave += "255 0 0 ";
+			}else if (myGameCell[i][j]==2){ // computer, yellow
+				textToSave += "255 255 0 ";
+			}else{
+				alert("wrong value in appendToText()");
+			}
+				
+		}
+    }
+	textToSave += "\n";
+}
+
+function saveToFile() {
+/* 	textToSave = "";
+	for (i = 0; i < 256; i++){// 7 columns
+		for (j = 0; j < 128; j++){ // 6 rows
+			textToSave += (i+" "+j+" "+"0"+" ");
+		}
+    }  */
+	const blob = new Blob([textToSave], { type: 'text/plain' });
+    // Create a temporary link to trigger the download
+	const link = document.createElement('a');
+	link.href = window.URL.createObjectURL(blob);
+	link.download = 'pixels.txt';
+	link.click();
+}
+
 function startGame() {
 	myGameWidth = canvas.width;
     myGameHeight = canvas.height;
@@ -151,7 +187,7 @@ function findNextMove() {// find next move for computer (myGamePlayer == 1)
 	for (var i = 0; i < 7; i++){// 7 columns
 		freeRowInColumn[i] = getFreeRow(i,matrix);
 	}
-	// A let the computer (myGamePlaer = 2 = yellow) make 4 on a row if he can
+/*	// A let the computer (myGamePlaer = 2 = yellow) make 4 on a row if he can
 	var nextMove = make4OnARow(matrix,freeRowInColumn,computer);
 	console.log("A");
 	if(nextMove != -1){
@@ -243,16 +279,8 @@ function findNextMove() {// find next move for computer (myGamePlayer == 1)
 						// we don't return ic since this move gives the human a chance to make 4 on a row
 						dont.push(ic); // instead we add it to the list of unfavorable moves
 					}
-	/*				// C let the computer make (0,1,1,1,0) if he can
-					nextMove = makePatternOf5(matrix,freeRowInColumn,computer);
-					if(nextMove != -1){
-						console.log(ic+": E - "+nextMove+": C+");
-						if(humanCannotWinAfterThisMove(matrix,freeRowInColumn,nextMove)){
-							console.log(ic+": E - "+nextMove+": C++");
-							return ic;
-						}
-					}
-	*/				// D See if the human player can make (0,1,1,1,0) in the next move. If so, let the computer block that move ;-)
+
+					// D See if the human player can make (0,1,1,1,0) in the next move. If so, let the computer block that move ;-)
 					nextMove = makePatternOf5(matrix,freeRowInColumn,human);
 					if(nextMove != -1){
 						console.log(ic+": E - "+nextMove+": D-");
@@ -266,7 +294,7 @@ function findNextMove() {// find next move for computer (myGamePlayer == 1)
 		}
 		matrix[ic][jc] = myGameCell[ic][jc]; // set original value back for computer
 	}
-
+	*/
 	// F make random move with preference for center
 	var index = [];
 	switch(Math.floor(Math.random() * 5)){// returns a random integer from 0 to 4
@@ -293,7 +321,7 @@ function findNextMove() {// find next move for computer (myGamePlayer == 1)
 	for (var i = 0; i < 7; i++){// 7 columns
 		var nextMove = index[i];
 		if(getFreeRow(nextMove,myGameCell)!=-1){// column nextMove isn't full yet
-			console.log(nextMove+": F+");
+			/*console.log(nextMove+": F+");
 			if(humanCanWinAfterThisMove(matrix,freeRowInColumn,nextMove)){
 				console.log(nextMove+": F+-");
 			}else{
@@ -309,11 +337,12 @@ function findNextMove() {// find next move for computer (myGamePlayer == 1)
 					console.log(nextMove+": F+++");
 					return nextMove;
 				}
-			}
+			}*/
+			return nextMove;
 		}
 	}
 	// G when we get all the way up here that means we must make a move out of the don't list
-	console.log("G");
+	/*console.log("G");
 	for (var u = 0; u < dont.length; u++){// loop over all don'ts
 		nextMove = dont[dont.length-u-1];
 		if(getFreeRow(nextMove,matrix)!=-1){
@@ -322,7 +351,7 @@ function findNextMove() {// find next move for computer (myGamePlayer == 1)
 		}else{
 			console.log(nextMove+": G-");
 		}
-	}
+	}*/
 	alert("De computer kon geen geldige zet meer verzinnen. Proficiat, jullie speelden gelijk spel.");
 }
 
